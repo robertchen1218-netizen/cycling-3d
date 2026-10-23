@@ -9,10 +9,10 @@
 html,body{height:100%;margin:0}
 body{background:radial-gradient(ellipse at 50% 40%,var(--b1),var(--b2));color:var(--tx);font:14px/1.5 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
 #app{position:relative;height:100%}
-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block}
 .p{position:absolute;background:var(--pn);border:1px solid var(--ln);border-radius:8px;padding:10px 12px;backdrop-filter:blur(8px)}
 #top{left:10px;top:10px;width:212px}#info{right:10px;top:10px;width:178px}
-#bar{left:10px;right:10px;bottom:10px;display:flex;gap:10px;align-items:center}
+#bar{left:10px;right:10px;bottom:10px}#cr{display:flex;gap:10px;align-items:center}#chs{display:flex;gap:10px;margin-top:8px}#chs canvas{flex:1;min-width:0;height:96px;touch-action:none;cursor:pointer}
 h1{font-size:15px;margin:0 0 8px}.row{display:flex;gap:6px;margin-bottom:8px}
 button,.btn,select{font:inherit;color:var(--tx);background:transparent;border:1px solid var(--ln);border-radius:6px;padding:4px 10px;cursor:pointer;text-align:center}
 .row>*{flex:1}.on{background:var(--ac);color:var(--on);border-color:var(--ac)}
@@ -23,7 +23,7 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 #sum{color:var(--mu);font-size:12px;margin-bottom:8px}
 #lg{height:8px;border-radius:4px;background:linear-gradient(90deg,hsl(120 85% 50%),hsl(60 85% 50%),hsl(0 85% 50%))}
 #lb{display:flex;justify-content:space-between;color:var(--mu);font-size:12px}
-@media(max-width:600px){#top{right:10px;width:auto}#info{top:auto;bottom:62px;width:auto;left:10px}#bar{flex-wrap:wrap}}
+@media(max-width:600px){#top{right:10px;width:auto}#info{top:auto;bottom:250px;width:auto;left:10px}#cr{flex-wrap:wrap}#chs{flex-direction:column}#chs canvas{height:70px}}
 </style></head><body>
 <div id="app"><canvas id="c"></canvas>
 <div class="p" id="top"><h1>GPX 真實地形坡度</h1>
@@ -34,9 +34,9 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 <div class="p" id="info"><div id="sum"></div>
 <dl><dt>時間</dt><dd id="t"></dd><dt>距離</dt><dd id="d"></dd><dt>海拔</dt><dd id="e"></dd><dt>坡度</dt><dd id="g"></dd><dt>速度</dt><dd id="v"></dd></dl>
 <div id="lg"></div><div id="lb"><span>平路 / 下坡</span><span>12% 以上</span></div></div>
-<div class="p" id="bar"><button id="play" aria-label="播放">▶</button><input id="tl" type="range" min="0" max="1000" value="0" aria-label="時間軸">
+<div class="p" id="bar"><div id="cr"><button id="play" aria-label="播放">▶</button><input id="tl" type="range" min="0" max="1000" value="0" aria-label="時間軸">
 <select id="sp" aria-label="播放速度"><option value="1">1×</option><option value="4">4×</option><option value="10">10×</option><option value="30">30×</option><option value="60">60×</option><option value="120">120×</option><option value="300">300×</option><option value="600">600×</option></select>
-<label><input type="checkbox" id="fol"> 跟隨</label></div></div>
+<label><input type="checkbox" id="fol"> 跟隨</label></div><div id="chs"><canvas id="c1" aria-label="海拔剖面"></canvas><canvas id="c2" aria-label="騎乘速度"></canvas></div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
@@ -104,11 +104,31 @@ function build(reset){
  if(reset){cam.position.set(0,dome?11:13,dome?17:16);ct.target.set(0,dome?3:0,0)}lastI=-1;upd()}
 function paint(i){const a=rg.attributes.color.array;for(let r=0;r<D.N;r++){const f=r<=i?1:.2,c=BC[r];for(let m=0;m<6;m++){const o=(r*6+m)*3;a[o]=c.r*f;a[o+1]=c.g*f;a[o+2]=c.b*f}}rg.attributes.color.needsUpdate=true}
 const pad=n=>String(Math.floor(n)).padStart(2,'0'),fmt=s=>(s>=3600?Math.floor(s/3600)+':':'')+pad(s%3600/60)+':'+pad(s%60);
+const cc=[$('c1'),$('c2')];let curS=0;
+function chart(k){const cv=cc[k],dp=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(!w||!D)return;
+ if(cv.width!==Math.round(w*dp)){cv.width=Math.round(w*dp);cv.height=Math.round(h*dp)}
+ const g=cv.getContext('2d'),cs=getComputedStyle(document.documentElement),col=n=>cs.getPropertyValue(n).trim(),mu=col('--mu'),ln=col('--ln'),ac=col('--ac'),tx=col('--tx');
+ g.setTransform(dp,0,0,dp,0,0);g.clearRect(0,0,w,h);g.font='10px sans-serif';
+ const A=k?D.V:D.E,L=D.L,n=D.N,l=36,r=6,t=16,b=14,pw=w-l-r,ph=h-t-b;
+ let lo=k?0:Math.min(...A),hi=Math.max(...A);if(!k){const p=(hi-lo)*.08+1;lo-=p;hi+=p}else hi=Math.max(10,hi*1.08);
+ const X=s=>l+s/L*pw,Y=v=>t+ph-(v-lo)/(hi-lo)*ph;
+ g.fillStyle=mu;g.textAlign='left';g.fillText(k?'速度 km/h':'海拔 m',l,10);g.textAlign='right';g.fillText(Math.round(hi),l-4,t+8);g.fillText(Math.round(lo),l-4,t+ph);
+ const km=L/1000,stp=[1,2,5,10,20,50].find(s=>km/s<=6)||100;g.textAlign='center';g.strokeStyle=ln;g.lineWidth=1;
+ for(let d=0;d<=km;d+=stp){const x=X(d*1000);g.beginPath();g.moveTo(x,t);g.lineTo(x,t+ph);g.stroke();g.fillText(d+' km',x,h-2)}
+ if(!D.cs)D.cs=BC.map(c=>c.getStyle());
+ if(!k){for(let i=0;i<n-1;i++){const x0=X(D.S[i]),x1=X(D.S[i+1]),y=Y(D.E[i]);g.globalAlpha=D.S[i]<=curS?1:.35;g.fillStyle=D.cs[i];g.fillRect(x0,y,x1-x0+.6,t+ph-y)}g.globalAlpha=1}
+ else if(!D.hasT){g.fillStyle=mu;g.textAlign='center';g.fillText('GPX 沒有時間資料',l+pw/2,t+ph/2)}
+ else{g.beginPath();g.moveTo(X(0),Y(0));for(let i=0;i<n;i++)g.lineTo(X(D.S[i]),Y(D.V[i]));g.lineTo(X(L),Y(0));g.closePath();g.globalAlpha=.18;g.fillStyle=ac;g.fill();g.globalAlpha=1;
+  g.lineWidth=1.5;g.strokeStyle=mu;g.beginPath();for(let i=0;i<n;i++)g[i?'lineTo':'moveTo'](X(D.S[i]),Y(D.V[i]));g.stroke();
+  g.strokeStyle=ac;g.lineWidth=2;g.beginPath();for(let i=0;i<n&&D.S[i]<=curS;i++)g[i?'lineTo':'moveTo'](X(D.S[i]),Y(D.V[i]));g.stroke()}
+ g.strokeStyle=tx;g.lineWidth=1.5;g.beginPath();g.moveTo(X(curS),t);g.lineTo(X(curS),t+ph);g.stroke()}
+cc.forEach(cv=>{const go=e=>{if(!D)return;const q=cv.getBoundingClientRect(),f=Math.min(1,Math.max(0,(e.clientX-q.left-36)/(q.width-42)));cur=D.T[Math.round(f*(D.N-1))];upd()};
+ cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);go(e);cv.onpointermove=go};cv.onpointerup=()=>{cv.onpointermove=null}});
 function upd(){const T=D.T;let lo=0,hi=D.N-1;while(hi-lo>1){const m=(lo+hi)>>1;T[m]<=cur?lo=m:hi=m}
  const f=Math.min(1,Math.max(0,(cur-T[lo])/(T[hi]-T[lo]))),l=a=>a[lo]+(a[hi]-a[lo])*f;
  mk.position.copy(P[lo]).lerp(P[hi],f);const i=f>.5?hi:lo;if(i!==lastI){paint(i);lastI=i}
  $('t').textContent=fmt(cur);$('d').textContent=(l(D.S)/1000).toFixed(2)+' km';$('e').textContent=Math.round(l(D.E))+' m';
- $('g').textContent=l(D.G).toFixed(1)+' %';$('v').textContent=D.hasT?l(D.V).toFixed(1)+' km/h':'無時間資料';$('tl').value=cur/T[D.N-1]*1000}
+ $('g').textContent=l(D.G).toFixed(1)+' %';$('v').textContent=D.hasT?l(D.V).toFixed(1)+' km/h':'無時間資料';$('tl').value=cur/T[D.N-1]*1000;curS=l(D.S);chart(0);chart(1)}
 // 真實地形：AWS Terrarium 高程圖磚 + Esri 衛星影像（可改成內政部 NLSC：https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}）
 const DEMU=(z,x,y)=>'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/'+z+'/'+x+'/'+y+'.png';
 const IMGU=(z,x,y)=>'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x;
