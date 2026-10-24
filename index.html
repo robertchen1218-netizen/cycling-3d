@@ -30,10 +30,11 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 <div class="row"><label class="btn" for="f" tabindex="0">上傳 GPX</label><input id="f" type="file" accept=".gpx" hidden><button id="demo">範例路線</button></div>
 <div class="row"><button id="mDisc" class="on">圓盤</button><button id="mDome">半球</button></div>
 <label class="s">歷史路線<select id="rs" style="width:100%;margin-bottom:8px"><option value="">選擇路線…</option></select></label>
+<label class="s">圖資<select id="sr" style="width:100%;margin-bottom:8px"><option value="nlsc">內政部國土測繪中心</option><option value="esri">影像 Esri</option><option value="topo">等高線地形圖 OpenTopoMap</option></select></label>
 <label class="s">高度誇張<input id="ex" type="range" min="0.5" max="3" step="0.1" value="1"></label></div>
 <div class="p" id="info"><div id="sum"></div>
 <dl><dt>時間</dt><dd id="t"></dd><dt>距離</dt><dd id="d"></dd><dt>海拔</dt><dd id="e"></dd><dt>坡度</dt><dd id="g"></dd><dt>速度</dt><dd id="v"></dd></dl>
-<div id="lg"></div><div id="lb"><span>平路 / 下坡</span><span>12% 以上</span></div></div>
+<div id="lg"></div><div id="lb"><span>平路 / 下坡</span><span>12% 以上</span></div><div id="att" style="margin-top:8px;color:var(--mu);font-size:11px"></div></div>
 <div class="p" id="bar"><div id="cr"><button id="play" aria-label="播放">▶</button><input id="tl" type="range" min="0" max="1000" value="0" aria-label="時間軸">
 <select id="sp" aria-label="播放速度"><option value="1">1×</option><option value="4">4×</option><option value="10">10×</option><option value="30">30×</option><option value="60">60×</option><option value="120">120×</option><option value="300">300×</option><option value="600">600×</option></select>
 <label><input type="checkbox" id="fol"> 跟隨</label></div><div id="chs"><canvas id="c1" aria-label="海拔剖面"></canvas><canvas id="c2" aria-label="騎乘速度"></canvas></div></div></div>
@@ -50,9 +51,13 @@ const cv=document.createElement('canvas');cv.width=4;cv.height=64;const cx2=cv.g
 const tex=new THREE.CanvasTexture(cv);
 function rs(){const a=$('app');rd.setSize(a.clientWidth,a.clientHeight,false);cam.aspect=a.clientWidth/a.clientHeight;cam.updateProjectionMatrix()}
 new ResizeObserver(rs).observe($('app'));
-function parse(t){return[...new DOMParser().parseFromString(t,'text/xml').querySelectorAll('trkpt,rtept')].map(p=>{const e=p.querySelector('ele'),m=p.querySelector('time');return{lat:+p.getAttribute('lat'),lon:+p.getAttribute('lon'),ele:e?+e.textContent:NaN,t:m?Date.parse(m.textContent):NaN}})}
+function parse(t){const x=new DOMParser().parseFromString(t,'text/xml');let o=[...x.getElementsByTagNameNS('*','trkpt')];if(!o.length)o=[...x.getElementsByTagNameNS('*','rtept')];
+ if(o.length)return o.map(p=>{const e=p.getElementsByTagNameNS('*','ele')[0],m=p.getElementsByTagNameNS('*','time')[0];return{lat:+p.getAttribute('lat'),lon:+p.getAttribute('lon'),ele:e?+e.textContent:NaN,t:m?Date.parse(m.textContent):NaN}});
+ const out=[],re=/<(?:trkpt|rtept)\b([^>]*)>([\s\S]*?)<\/(?:trkpt|rtept)>/g;let m;
+ while(m=re.exec(t)){const la=/lat\s*=\s*["']([^"']+)/.exec(m[1]),lo=/lon\s*=\s*["']([^"']+)/.exec(m[1]),e=/<ele>([^<]*)/.exec(m[2]),ti=/<time>([^<]*)/.exec(m[2]);out.push({lat:la?+la[1]:NaN,lon:lo?+lo[1]:NaN,ele:e?+e[1]:NaN,t:ti?Date.parse(ti[1]):NaN})}
+ return out}
 function prep(raw){
- const a=raw.filter(p=>isFinite(p.lat)&&isFinite(p.lon));if(a.length<5)throw'GPX 內的軌跡點太少';
+ const a=raw.filter(p=>isFinite(p.lat)&&isFinite(p.lon));if(a.length<5)throw'GPX 內只讀到 '+raw.length+' 個軌跡點（檔案可能不是有效的 GPX）';
  const kx=111320*Math.cos(a[0].lat*Math.PI/180),ky=110540;let le=0;
  a.forEach(p=>{p.ele=isFinite(p.ele)?p.ele:le;le=p.ele;p.x=(p.lon-a[0].lon)*kx;p.z=-(p.lat-a[0].lat)*ky});
  const d=[0];for(let i=1;i<a.length;i++)d[i]=d[i-1]+Math.hypot(a[i].x-a[i-1].x,a[i].z-a[i-1].z);
@@ -144,9 +149,16 @@ function upd(){const T=D.T;let lo=0,hi=D.N-1;while(hi-lo>1){const m=(lo+hi)>>1;T
  $('g').textContent=l(D.G).toFixed(1)+' %';$('v').textContent=D.hasT?l(D.V).toFixed(1)+' km/h':'無時間資料';$('tl').value=cur/T[D.N-1]*1000;curS=l(D.S);chart(0);chart(1)}
 // 真實地形：AWS Terrarium 高程圖磚 + Esri 衛星影像（可改成內政部 NLSC：https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}）
 const DEMU=(z,x,y)=>'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/'+z+'/'+x+'/'+y+'.png';
-const IMGU=(z,x,y)=>'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x;
 const loadImg=u=>new Promise((ok,no)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>ok(i);i.onerror=no;i.src=u});
 const wpx=(la,lo,z)=>{const n=256*2**z,s=Math.sin(la*Math.PI/180);return[(lo+180)/360*n,(.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n]};
+const SRC={nlsc:{n:'內政部國土測繪中心',u:(z,x,y)=>'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/'+z+'/'+y+'/'+x,c:'影像：內政部國土測繪中心'},
+ esri:{n:'Esri',u:(z,x,y)=>'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x,c:'影像：Esri World Imagery'},
+ topo:{n:'OpenTopoMap',u:(z,x,y)=>'https://'+'abc'[(x+y)%3]+'.tile.opentopomap.org/'+z+'/'+x+'/'+y+'.png',c:'地圖：OpenTopoMap（CC-BY-SA），資料 © OpenStreetMap 貢獻者'}};
+let srcKey='esri';try{srcKey=localStorage.getItem('src')||'esri'}catch(e){}if(!SRC[srcKey])srcKey='esri';
+async function loadTex(d){const{z,t0,jobs,W,Hh}=d.geo,S=SRC[srcKey],k=z<16?1:0,m=2**k,ic=document.createElement('canvas');ic.width=W*m;ic.height=Hh*m;const ig=ic.getContext('2d');let ok=0;
+ await Promise.all(jobs.flatMap(([a,b])=>{const r=[];for(let i=0;i<m;i++)for(let j=0;j<m;j++)r.push(loadImg(S.u(z+k,(t0[0]+a)*m+i,(t0[1]+b)*m+j)).then(im=>{ig.drawImage(im,(a*m+i)*256,(b*m+j)*256);ok++},()=>0));return r}));
+ if(d.tx)d.tx.dispose();d.tx=null;if(ok){d.tx=new THREE.CanvasTexture(ic);d.tx.anisotropy=8}
+ $('att').textContent=(ok?S.c:'「'+S.n+'」圖磚無法載入，已改用高度著色')+'；高程：AWS Terrain Tiles'}
 async function real(d){
  const Rm=R/d.u,dy=Rm/d.ky,dx=Rm/d.kx;let z=14,t0,t1;
  for(;z>6;z--){const a=wpx(d.clat+dy,d.clon-dx,z),b=wpx(d.clat-dy,d.clon+dx,z);t0=[a[0]/256|0,a[1]/256|0];t1=[b[0]/256|0,b[1]/256|0];if((t1[0]-t0[0]+1)*(t1[1]-t0[1]+1)<=25)break}
@@ -155,14 +167,12 @@ async function real(d){
  const imgs=await Promise.all(jobs.map(([a,b])=>loadImg(DEMU(z,t0[0]+a,t0[1]+b)))),tc=document.createElement('canvas').getContext('2d',{willReadFrequently:true});
  tc.canvas.width=tc.canvas.height=256;
  jobs.forEach(([a,b],n)=>{tc.drawImage(imgs[n],0,0);const q=tc.getImageData(0,0,256,256).data;for(let p=0;p<65536;p++)el[(b*256+(p>>8))*W+a*256+(p&255)]=q[p*4]*256+q[p*4+1]+q[p*4+2]/256-32768});
- const k=z<16?1:0,m=2**k,ic=document.createElement('canvas');ic.width=W*m;ic.height=Hh*m;const ig=ic.getContext('2d');let ok=0;
- await Promise.all(jobs.flatMap(([a,b])=>{const r=[];for(let i=0;i<m;i++)for(let j=0;j<m;j++)r.push(loadImg(IMGU(z+k,(t0[0]+a)*m+i,(t0[1]+b)*m+j)).then(im=>{ig.drawImage(im,(a*m+i)*256,(b*m+j)*256);ok++},()=>0));return r}));
+ d.geo={z,t0,jobs,W,Hh};await loadTex(d);
  const smp=(x,zz)=>{const[p,q]=wpx(d.clat-zz/d.u/d.ky,d.clon+x/d.u/d.kx,z),X=Math.min(W-1.01,Math.max(0,p-ox)),Y=Math.min(Hh-1.01,Math.max(0,q-oy)),i=X|0,j=Y|0,fx=X-i,fy=Y-j,g=(s,t)=>el[(j+t)*W+i+s];
   return[(g(0,0)*(1-fx)+g(1,0)*fx)*(1-fy)+(g(0,1)*(1-fx)+g(1,1)*fx)*fy,X/W,1-Y/Hh]};
  const raw=[],uv=[];for(let i=0;i<=NR;i++)for(let j=0;j<=NS;j++){const th=2*Math.PI*j/NS,r=R*i/NR,s=smp(r*Math.cos(th),r*Math.sin(th));raw.push(s[0]);uv.push(s[1],s[2])}
  const hmn=raw.reduce((a,b)=>Math.min(a,b)),hmx=raw.reduce((a,b)=>Math.max(a,b)),rel=Math.max(20,hmx-hmn);
- d.H=raw.map(h=>h-hmn);d.rel=rel;d.uv=uv;d.RH=d.X.map((x,i)=>smp(x,d.Z[i])[0]-hmn+.005*rel);
- if(ok){d.tx=new THREE.CanvasTexture(ic);d.tx.anisotropy=8}}
+ d.H=raw.map(h=>h-hmn);d.rel=rel;d.uv=uv;d.RH=d.X.map((x,i)=>smp(x,d.Z[i])[0]-hmn+.005*rel);}
 async function load(raw){let n;try{n=prep(raw)}catch(e){$('sum').textContent=typeof e==='string'?e:'無法讀取這個 GPX 檔';return}
  $('sum').textContent='下載真實地形中…';try{await real(n);n.real=1}catch(e){n.real=0}
  D=n;cur=0;play=false;$('play').textContent='▶';const end=D.T[D.N-1];speed=4;$('sp').value=4;
@@ -186,7 +196,8 @@ function loop(n){requestAnimationFrame(loop);const dt=Math.min(.1,(n-pt)/1000);p
   if($('fol').checked){const d=mk.position.clone().sub(ct.target).multiplyScalar(.08);ct.target.add(d);cam.position.add(d)}}
  ct.update();rd.render(sc,cam)}
 rs();$('sum').textContent='請上傳 GPX 檔，或按「範例路線」';requestAnimationFrame(loop);
-async function openRide(f,u){try{const t=await(await fetch('rides/'+encodeURIComponent(f))).text();if(u)history.replaceState(null,'','?ride='+encodeURIComponent(f));load(parse(t))}catch(e){$('sum').textContent='讀不到這條路線'}}
+async function openRide(f,u){try{const rr=await fetch('rides/'+encodeURIComponent(f));if(!rr.ok)throw 0;const t=await rr.text();if(u)history.replaceState(null,'','?ride='+encodeURIComponent(f));load(parse(t))}catch(e){$('sum').textContent='找不到 rides/'+f+'，請確認檔名和 index.json 寫的一模一樣'}}
+$('sr').value=srcKey;$('sr').onchange=async e=>{srcKey=e.target.value;try{localStorage.setItem('src',srcKey)}catch(x){}if(D&&D.geo){$('att').textContent='載入圖資中…';await loadTex(D);build(false)}};
 $('rs').onchange=e=>e.target.value&&openRide(e.target.value,1);
 (async()=>{try{const L=await(await fetch('rides/index.json')).json(),q=new URLSearchParams(location.search).get('ride');
  L.forEach(r=>{const o=document.createElement('option');o.value=r.file;o.textContent=r.name;$('rs').appendChild(o)});
