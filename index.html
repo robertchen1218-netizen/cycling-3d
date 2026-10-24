@@ -75,13 +75,17 @@ function prep(raw){
   for(const q of ix){const d2=(x-X[q])**2+(z-Z[q])**2;if(d2<dm)dm=d2;const w=1/(d2+.04);sw+=w;sh+=w*(Es[q]-emin)}
   H.push(sh/sw+.02*rel+Math.min(1,dm/2)*.05*rel*(Math.sin(x*1.7+1.3)*Math.cos(z*1.3)+.5*Math.sin(x*3.1-z*2.3)))}}
  return{N,X,Z,E:Es,S,T,G,V,L,up,hasT,u,emin,rel,H,maxG:Math.max(...G),RH:Es.map(e=>e-emin+.05*rel),clat:a[0].lat-cz/ky,clon:a[0].lon+cx/kx,kx,ky}}
-function bike(){const g=new THREE.Group(),fm=new THREE.MeshBasicMaterial({color:0xff6a1a}),wm=new THREE.MeshBasicMaterial({color:0x1b1b1b}),
- bar=(a,b,m,r)=>{const d=new V3(b[0]-a[0],b[1]-a[1],0),c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),6),m);c.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,0);c.quaternion.setFromUnitVectors(new V3(0,1,0),d.normalize());g.add(c)};
- [-.45,.45].forEach(x=>{const w=new THREE.Mesh(new THREE.TorusGeometry(.28,.03,8,28),wm);w.position.set(x,.28,0);g.add(w)});
- const Rh=[-.45,.28],Fh=[.45,.28],BB=[-.05,.22],S=[-.2,.64],H=[.3,.62],HB=[.36,.5];
- [[Rh,BB],[BB,S],[Rh,S],[S,H],[BB,H],[HB,Fh],[H,[.38,.68]]].forEach(([a,b])=>bar(a,b,fm,.022));
- const hb=new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.24,6),wm);hb.rotation.x=Math.PI/2;hb.position.set(.38,.68,0);g.add(hb);
- const sd=new THREE.Mesh(new THREE.BoxGeometry(.16,.03,.07),wm);sd.position.set(-.22,.68,0);g.add(sd);
+function bike(){const g=new THREE.Group(),fm=new THREE.MeshBasicMaterial({color:0xff6a1a}),bm=new THREE.MeshBasicMaterial({color:0x1b1b1b}),rm=new THREE.MeshBasicMaterial({color:0xc9ccd1}),
+ tube=(a,b,m,r)=>{const d=new V3(b[0]-a[0],b[1]-a[1],0),c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),6),m);c.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,0);c.quaternion.setFromUnitVectors(new V3(0,1,0),d.normalize());g.add(c)};
+ [-.5,.5].forEach(x=>{const t=new THREE.Mesh(new THREE.TorusGeometry(.3,.014,8,36),bm),q=new THREE.Mesh(new THREE.TorusGeometry(.284,.016,6,36),rm);t.position.set(x,.31,0);q.position.set(x,.31,0);g.add(t,q)});
+ const Rh=[-.5,.31],Fh=[.5,.31],BB=[-.04,.24],S=[-.2,.69],H=[.34,.65],HB=[.4,.54];
+ [[Rh,BB],[BB,S],[Rh,S],[S,H],[BB,HB],[HB,Fh],[H,HB]].forEach(([a,b])=>tube(a,b,fm,.02));
+ tube(S,[-.215,.74],bm,.012);
+ const sd=new THREE.Mesh(new THREE.BoxGeometry(.17,.025,.06),bm);sd.position.set(-.22,.755,0);g.add(sd);
+ tube(H,[.37,.72],bm,.014);
+ [-.09,.09].forEach(z=>{const c=new THREE.CatmullRomCurve3([new V3(.37,.72,z),new V3(.47,.73,z),new V3(.53,.66,z),new V3(.5,.58,z),new V3(.42,.585,z)]);g.add(new THREE.Mesh(new THREE.TubeGeometry(c,14,.012,5),bm))});
+ const tp=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.18,5),bm);tp.rotation.x=Math.PI/2;tp.position.set(.37,.72,0);g.add(tp);
+ const cr=new THREE.Mesh(new THREE.TorusGeometry(.065,.008,6,20),rm);cr.position.set(-.04,.24,.04);g.add(cr);
  g.scale.setScalar(1.2);const o=new THREE.Group();o.add(g);return o}
 function build(reset){
  if(grp){sc.remove(grp);grp.traverse(o=>o.geometry&&o.geometry.dispose())}
