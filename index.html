@@ -34,7 +34,6 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 <div id="app"><canvas id="c"></canvas>
 <div class="p" id="top"><div class="hd"><h1>GPX 真實地形坡度</h1><button id="mn" aria-label="選單">☰</button></div><div id="tc">
 <div class="row"><label class="btn" for="f" tabindex="0">上傳 GPX</label><input id="f" type="file" accept=".gpx" hidden><button id="demo">範例路線</button></div>
-<div class="row"><button id="mDisc" class="on">圓盤</button><button id="mDome">半球</button></div>
 <label class="s">歷史路線<select id="rs" style="width:100%;margin-bottom:8px"><option value="">選擇路線…</option></select></label>
 <label class="s">圖資<select id="sr" style="width:100%;margin-bottom:8px"><option value="nlsc">內政部國土測繪中心</option><option value="esri">影像 Esri</option></select></label>
 <label class="s">爬坡路段<select id="cl" style="width:100%;margin-bottom:8px"><option value="">（尚未載入）</option></select></label>
@@ -215,8 +214,6 @@ const file=f=>f&&f.text().then(t=>load(parse(t)));
 $('f').onchange=e=>file(e.target.files[0]);$('demo').onclick=()=>load(demo());
 addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();file(e.dataTransfer.files[0])});
 $('f').previousElementSibling&&0;document.querySelector('label[for=f]').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('f').click()}};
-function setMode(m){mode=m;$('mDisc').classList.toggle('on',m==='disc');$('mDome').classList.toggle('on',m==='dome');D&&build(true)}
-$('mDisc').onclick=()=>setMode('disc');$('mDome').onclick=()=>setMode('dome');
 $('ex').oninput=e=>{ex=+e.target.value;D&&build(false)};
 $('play').onclick=()=>{if(!D)return;if(cur>=D.T[D.N-1]-.01)cur=0;play=!play;$('play').textContent=play?'❚❚':'▶'};
 $('tl').oninput=e=>{if(D){cur=e.target.value/1000*D.T[D.N-1];upd()}};
