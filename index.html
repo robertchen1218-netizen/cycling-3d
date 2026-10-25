@@ -23,21 +23,27 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 #sum{color:var(--mu);font-size:12px;margin-bottom:8px}
 #lg{height:8px;border-radius:4px;background:linear-gradient(90deg,hsl(120 85% 50%),hsl(60 85% 50%),hsl(0 85% 50%))}
 #lb{display:flex;justify-content:space-between;color:var(--mu);font-size:12px}
-@media(max-width:600px){#top{right:10px;width:auto}#info{top:auto;bottom:250px;width:auto;left:10px}#cr{flex-wrap:wrap}#chs{flex-direction:column}#chs canvas{height:70px}}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:8px}.hd h1{margin:0 0 8px}#mn{display:none;flex:none;padding:2px 10px}
+#ct{flex:none}#ct[aria-pressed="true"]{background:var(--ac);color:var(--on);border-color:var(--ac)}.hide{display:none!important}
+@media(max-width:600px){
+#top{right:10px;width:auto;padding:6px 10px}.hd h1{margin:0;font-size:14px}#mn{display:block}#top:not(.cl) .hd h1{margin-bottom:8px}#top.cl #tc{display:none}
+#info{top:auto;bottom:calc(var(--bh,60px) + 22px);left:10px;right:10px;width:auto;padding:6px 10px;font-size:12px}
+#info dl{display:flex;flex-wrap:wrap;gap:0 6px;margin:0 0 4px}#info dd{margin:0 8px 0 0;text-align:left}#lb{display:none}#sum{margin-bottom:4px}
+#cr{flex-wrap:wrap}#chs{flex-direction:column;margin-top:6px}#chs canvas{height:56px}}
 </style></head><body>
 <div id="app"><canvas id="c"></canvas>
-<div class="p" id="top"><h1>GPX 真實地形坡度</h1>
+<div class="p" id="top"><div class="hd"><h1>GPX 真實地形坡度</h1><button id="mn" aria-label="選單">☰</button></div><div id="tc">
 <div class="row"><label class="btn" for="f" tabindex="0">上傳 GPX</label><input id="f" type="file" accept=".gpx" hidden><button id="demo">範例路線</button></div>
 <div class="row"><button id="mDisc" class="on">圓盤</button><button id="mDome">半球</button></div>
 <label class="s">歷史路線<select id="rs" style="width:100%;margin-bottom:8px"><option value="">選擇路線…</option></select></label>
 <label class="s">圖資<select id="sr" style="width:100%;margin-bottom:8px"><option value="nlsc">內政部國土測繪中心</option><option value="esri">影像 Esri</option></select></label>
-<label class="s">高度誇張<input id="ex" type="range" min="0.5" max="3" step="0.1" value="1"></label></div>
+<label class="s">高度誇張<input id="ex" type="range" min="0.5" max="3" step="0.1" value="1"></label></div></div>
 <div class="p" id="info"><div id="sum"></div>
 <dl><dt>時間</dt><dd id="t"></dd><dt>距離</dt><dd id="d"></dd><dt>海拔</dt><dd id="e"></dd><dt>坡度</dt><dd id="g"></dd><dt>速度</dt><dd id="v"></dd></dl>
 <div id="lg"></div><div id="lb"><span>平路 / 下坡</span><span>12% 以上</span></div><div id="att" style="margin-top:8px;color:var(--mu);font-size:11px"></div></div>
 <div class="p" id="bar"><div id="cr"><button id="play" aria-label="播放">▶</button><input id="tl" type="range" min="0" max="1000" value="0" aria-label="時間軸">
 <span id="sp" style="color:var(--mu);padding:0 6px">600×</span>
-<label><input type="checkbox" id="fol"> 跟隨</label></div><div id="chs"><canvas id="c1" aria-label="海拔剖面"></canvas><canvas id="c2" aria-label="騎乘速度"></canvas></div></div></div>
+<label><input type="checkbox" id="fol"> 跟隨</label><button id="ct" aria-pressed="true">圖表</button></div><div id="chs"><canvas id="c1" aria-label="海拔剖面"></canvas><canvas id="c2" aria-label="騎乘速度"></canvas></div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
@@ -180,7 +186,7 @@ async function real(d){
 async function load(raw){let n;try{n=prep(raw)}catch(e){$('sum').textContent=typeof e==='string'?e:'無法讀取這個 GPX 檔';return}
  $('sum').textContent='下載真實地形中…';try{await real(n);n.real=1}catch(e){n.real=0}
  D=n;cur=0;play=false;$('play').textContent='▶';const end=D.T[D.N-1];
- $('sum').textContent='總距離 '+(D.L/1000).toFixed(1)+' km，爬升 '+Math.round(D.up)+' m，最大坡度 '+D.maxG.toFixed(1)+' %'+(D.real?'':'（無法下載地形圖磚，改用估算地形）');build(true)}
+ $('sum').textContent='總距離 '+(D.L/1000).toFixed(1)+' km，爬升 '+Math.round(D.up)+' m，最大坡度 '+D.maxG.toFixed(1)+' %'+(D.real?'':'（無法下載地形圖磚，改用估算地形）');build(true);if(matchMedia('(max-width:600px)').matches)$('top').classList.add('cl')}
 function demo(){const a=[],n=500;let t=Date.now(),px=0,py=0,pe=150;
  for(let k=0;k<n;k++){const s=k/(n-1),x=16000*s+500*Math.sin(s*14),y=1500*Math.sin(s*5)+500*Math.sin(s*23),b=s<.8?1000*s/.8:1000*(1-(s-.8)/.2*.35),e=150+b+60*Math.sin(s*14);
   if(k){const ds=Math.hypot(x-px,y-py),g=(e-pe)/ds*100;t+=ds/Math.max(2,Math.min(14,8.5-.5*g))*1000}
@@ -200,6 +206,10 @@ function loop(n){requestAnimationFrame(loop);const dt=Math.min(.1,(n-pt)/1000);p
   if($('fol').checked){const d=mk.position.clone().sub(ct.target).multiplyScalar(.08);ct.target.add(d);cam.position.add(d)}}
  ct.update();rd.render(sc,cam)}
 rs();$('sum').textContent='請上傳 GPX 檔，或按「範例路線」';requestAnimationFrame(loop);
+if(matchMedia('(max-width:600px)').matches){$('top').classList.add('cl');$('chs').classList.add('hide');$('ct').setAttribute('aria-pressed','false')}
+$('mn').onclick=()=>$('top').classList.toggle('cl');
+$('ct').onclick=()=>{const h=$('chs').classList.toggle('hide');$('ct').setAttribute('aria-pressed',String(!h))};
+new ResizeObserver(()=>document.documentElement.style.setProperty('--bh',$('bar').offsetHeight+'px')).observe($('bar'));
 async function openRide(f,u){try{const rr=await fetch('rides/'+encodeURIComponent(f));if(!rr.ok)throw 0;const t=await rr.text();if(u)history.replaceState(null,'','?ride='+encodeURIComponent(f));load(parse(t))}catch(e){$('sum').textContent='找不到 rides/'+f+'，請確認檔名和 index.json 寫的一模一樣'}}
 $('sr').value=srcKey;$('sr').onchange=async e=>{srcKey=e.target.value;try{localStorage.setItem('src',srcKey)}catch(x){}if(D&&D.geo){$('att').textContent='載入圖資中…';await loadTex(D);build(false)}};
 $('rs').onchange=e=>e.target.value&&openRide(e.target.value,1);
