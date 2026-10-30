@@ -55,10 +55,13 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 let need=2;const req=()=>{need=Math.max(need,30)};
 const $=i=>document.getElementById(i),R=10,TH=.9,NR=100,NS=200,V3=THREE.Vector3,M4=new THREE.Matrix4(),tq=new THREE.Quaternion();let snap=true;const HD=new V3(1,0,0),UPV=new V3(0,1,0),lp=new V3(),ZA=new V3(0,0,1);let spin=0,LV=null,CP=null,wq=Promise.resolve(),HRX=0;
 const rd=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,alpha:true});rd.setPixelRatio(Math.min(devicePixelRatio,2));
+// 2D canvas 當 WebGL 貼圖時用 willReadFrequently（CPU canvas），避免 Chrome 每次上傳都從 GPU 讀回（GPU stall due to ReadPixels）。
+// 軟體 WebGL（無 GPU 的 VM／遠端桌面）每畫一幀都要把畫面讀回給合成器，所以降到 1x 解析度減少讀回量。
+{const gl=rd.getContext(),di=gl.getExtension('WEBGL_debug_renderer_info'),gr=di?gl.getParameter(di.UNMASKED_RENDERER_WEBGL):'';if(/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gr))rd.setPixelRatio(1)}
 const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(42,1,.1,300),ct=new THREE.OrbitControls(cam,rd.domElement);ct.enableDamping=true;ct.addEventListener('change',req);
 sc.add(new THREE.HemisphereLight(0xffffff,0x40505a,.95));const dl=new THREE.DirectionalLight(0xffffff,.85);dl.position.set(8,14,6);sc.add(dl);
 let D=null,mode='disc',grp,mk,rg,BC=[],P=[],cur=0,play=false,lastI=-1,ex=1,speed=600;
-const cv=document.createElement('canvas');cv.width=4;cv.height=64;const cx2=cv.getContext('2d');
+const cv=document.createElement('canvas');cv.width=4;cv.height=64;const cx2=cv.getContext('2d',{willReadFrequently:true});
 ['#8a6a4b','#b08d62','#6e5238','#c4a077','#7d5e42','#a58259','#5f4630','#b89468'].forEach((h,i)=>{cx2.fillStyle=h;cx2.fillRect(0,i*8,4,8)});
 const tex=new THREE.CanvasTexture(cv);
 function rs(){req();const a=$('app');rd.setSize(a.clientWidth,a.clientHeight,false);cam.aspect=a.clientWidth/a.clientHeight;cam.updateProjectionMatrix()}
@@ -110,7 +113,7 @@ function animBike(o,sp){const U=o.userData,a=-sp/.36,hip=[-.17,.84];U.w.forEach(
  [0,1].forEach(k=>{const ph=a/2.8+k*Math.PI,pd=[-.04+.09*Math.cos(ph),.24+.09*Math.sin(ph)],dx=pd[0]-hip[0],dy=pd[1]-hip[1],d=Math.min(Math.hypot(dx,dy),.7),
   A=Math.acos(Math.max(-1,Math.min(1,(.34*.34+d*d-.365*.365)/(2*.34*d)))),an=Math.atan2(dy,dx)+A,kn=[hip[0]+.34*Math.cos(an),hip[1]+.34*Math.sin(an)],z=U.z[k];
   bone(U.th[k],hip,kn,.045,z);bone(U.sh[k],kn,pd,.032,z);bone(U.cr[k],[-.04,.24],pd,.012,z);U.pd[k].position.set(pd[0],pd[1],z)})}
-function lab(t,bg){const c=document.createElement('canvas');c.width=176;c.height=52;const x=c.getContext('2d');x.fillStyle=bg||'rgba(20,33,42,.85)';x.fillRect(0,0,176,52);x.fillStyle='#fff';x.font='bold 26px sans-serif';x.textAlign='center';x.fillText(t,88,36);
+function lab(t,bg){const c=document.createElement('canvas');c.width=176;c.height=52;const x=c.getContext('2d',{willReadFrequently:true});x.fillStyle=bg||'rgba(20,33,42,.85)';x.fillRect(0,0,176,52);x.fillStyle='#fff';x.font='bold 26px sans-serif';x.textAlign='center';x.fillText(t,88,36);
  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));s.scale.set(1.76,.52,1);return s}
 function addMarks(){const dm=mode==='dome',M=[[0,'起點','#1a7f4b'],[D.N-1,'終點','#b3261e']],L=D.L,km=L/1000,st=[1,2,5,10,20,50].find(q=>km/q<=8)||100;
  for(let k=st;k<km-st*.3;k+=st)M.push([Math.min(D.N-1,Math.round(k*1000/(L/(D.N-1)))),k+' km']);
@@ -220,7 +223,7 @@ const SRC={nlsc:{n:'內政部國土測繪中心',u:(z,x,y)=>'https://wmts.nlsc.g
  esri:{n:'Esri',u:(z,x,y)=>'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x,c:'影像：Esri World Imagery'}};
 let srcKey='esri';try{srcKey=localStorage.getItem('src')||'esri'}catch(e){}if(!SRC[srcKey])srcKey='esri';
 const pool=async(items,n,fn)=>{const q=[...items];await Promise.all(Array.from({length:n},async()=>{while(q.length)await fn(q.shift())}))};
-async function loadTex(d){const{z,t0,jobs,W,Hh}=d.geo,S=SRC[srcKey],k=z<16?1:0,m=2**k,Z=z+k,ic=document.createElement('canvas');ic.width=W*m;ic.height=Hh*m;const ig=ic.getContext('2d');ig.fillStyle='#d9d4c3';ig.fillRect(0,0,ic.width,ic.height);
+async function loadTex(d){const{z,t0,jobs,W,Hh}=d.geo,S=SRC[srcKey],k=z<16?1:0,m=2**k,Z=z+k,ic=document.createElement('canvas');ic.width=W*m;ic.height=Hh*m;const ig=ic.getContext('2d',{willReadFrequently:true});ig.fillStyle='#d9d4c3';ig.fillRect(0,0,ic.width,ic.height);
  const L=[];jobs.forEach(([a,b])=>{for(let i=0;i<m;i++)for(let j=0;j<m;j++)L.push([(t0[0]+a)*m+i,(t0[1]+b)*m+j,(a*m+i)*256,(b*m+j)*256])});
  const get=(z2,x,y)=>loadImgRetry(S.u(z2,x,y)).catch(()=>null);
  let ok=0;const miss=[];
