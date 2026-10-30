@@ -54,7 +54,7 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 <script>
 let need=2;const req=()=>{need=Math.max(need,30)};
 const $=i=>document.getElementById(i),R=10,TH=.9,NR=100,NS=200,V3=THREE.Vector3,M4=new THREE.Matrix4(),tq=new THREE.Quaternion();let snap=true;const HD=new V3(1,0,0),UPV=new V3(0,1,0),lp=new V3(),ZA=new V3(0,0,1);let spin=0,LV=null,CP=null,wq=Promise.resolve(),HRX=0;
-const rd=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,alpha:true});rd.setPixelRatio(Math.min(devicePixelRatio,2));
+let rd;try{rd=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,alpha:true})}catch(e){console.error(e);$('sum').textContent='這個瀏覽器無法使用 WebGL（可能關閉了硬體加速），無法顯示 3D 地形。';throw e}rd.setPixelRatio(Math.min(devicePixelRatio,2));
 // 2D canvas 當 WebGL 貼圖時用 willReadFrequently（CPU canvas），避免 Chrome 每次上傳都從 GPU 讀回（GPU stall due to ReadPixels）。
 // 軟體 WebGL（無 GPU 的 VM／遠端桌面）每畫一幀都要把畫面讀回給合成器，所以降到 1x 解析度減少讀回量。
 {const gl=rd.getContext(),di=gl.getExtension('WEBGL_debug_renderer_info'),gr=di?gl.getParameter(di.UNMASKED_RENDERER_WEBGL):'';if(/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gr))rd.setPixelRatio(1)}
