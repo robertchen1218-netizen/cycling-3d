@@ -145,7 +145,7 @@ function climbs(d){const E=d.E,S=d.S,N=d.N,lo=Math.max(...E)-Math.min(...E)<200,
  for(let q=1;q<pt.length;q++){const a=pt[q-1],b=pt[q],g=E[b]-E[a],l=S[b]-S[a];if(g>=gm&&l>=lm&&g/l>=am){let mx=0;for(let i=a;i<=b;i++)mx=Math.max(mx,d.G[i]);out.push({a,b,g,avg:g/l*100,max:mx})}}
  return out}
 function interp(X,Y,v){let lo=0,hi=X.length-1;if(v<=X[0])return Y[0];if(v>=X[hi])return Y[hi];while(hi-lo>1){const m=(lo+hi)>>1;X[m]<=v?lo=m:hi=m}return Y[lo]+(Y[hi]-Y[lo])*(v-X[lo])/((X[hi]-X[lo])||1)}
-function physSpeed(P,g){const th=Math.atan(g/100),F=v=>(85*9.81*(Math.sin(th)+.004*Math.cos(th))+.5*1.2*.38*v*v)*v-P;let lo=0,hi=30;for(let i=0;i<30;i++){const m=(lo+hi)/2;F(m)<0?lo=m:hi=m}return lo*3.6}
+function physSpeed(P,g){const th=Math.atan(g/100),F=v=>(85*9.81*(Math.sin(th)+.005*Math.cos(th))+.5*1.2*.42*v*v)*v-P*.97;let lo=0,hi=30;for(let i=0;i<30;i++){const m=(lo+hi)/2;F(m)<0?lo=m:hi=m}return Math.min(50,lo*3.6)}
 function parseIBD(dv){const f=dv.getUint16(0,true),r={};let o=2;
  if(!(f&1)){r.spd=dv.getUint16(o,true)/100;o+=2}if(f&2)o+=2;if(f&4){r.cad=dv.getUint16(o,true)/2;o+=2}if(f&8)o+=2;if(f&16)o+=3;if(f&32)o+=2;
  if(f&64){r.pwr=dv.getInt16(o,true);o+=2}if(f&128)o+=2;if(f&256)o+=5;if(f&512){r.hr=dv.getUint8(o);o+=1}return r}
@@ -158,7 +158,8 @@ function startLive(src,name){LV={src,spd:0,pwr:0,cad:0,hr:0,last:performance.now
 function finish(){const a=LV.samples,m=i=>a.length?a.reduce((x,r)=>x+r[i],0)/a.length:0;
  $('sum').textContent='騎乘完成：用時 '+fmt(LV.t)+'，平均功率 '+Math.round(m(2))+' W，平均速度 '+m(1).toFixed(1)+' km/h';$('dl').classList.remove('hide')}
 function liveStep(dt){const L=LV,now=performance.now(),g=interp(D.S,D.G,L.s);
- if(L.src==='sim'){L.tt=(L.tt||0)+dt;const P=165+45*Math.sin(L.tt/25);L.pwr=P;L.cad=88+4*Math.sin(L.tt/7);L.hr=128+(P-165)*.25+Math.min(30,L.tt*.05);L.spd=physSpeed(P,g);L.last=now}
+ if(L.src==='sim'){L.tt=(L.tt||0)+dt;const P=135+30*Math.sin(L.tt/25);L.pwr=P;L.cad=88+4*Math.sin(L.tt/7);L.hr=128+(P-135)*.25+Math.min(30,L.tt*.05);L.spd=physSpeed(P,g);L.last=now}
+ if(L.src==='sim'){const tg=L.spd;L.v=(L.v==null?0:L.v);L.v+=(tg-L.v)*Math.min(1,dt/(tg>L.v?6:3));L.spd=L.v}
  else if(now-L.last>3000){L.spd=0;L.pwr=0;L.cad=0}
  if(play){L.t+=dt;L.s+=L.spd/3.6*dt;if(L.s>=D.L){L.s=D.L;play=false;setPB();finish()}cur=interp(D.S,D.T,L.s);L.sm+=dt;if(L.sm>=1){L.sm=0;L.samples.push([L.t,L.spd,L.pwr,L.cad,L.hr||HRX,L.s,g])}}
  else L.s=interp(D.T,D.S,cur);
