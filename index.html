@@ -289,7 +289,7 @@ async function openRide(f,u){const id=++loadSeq;$('rs').value=f;if(u)history.rep
  if(id===loadSeq)load(parse(t),id)}
 $('sr').value=srcKey;$('sr').onchange=async e=>{srcKey=e.target.value;try{localStorage.setItem('src',srcKey)}catch(x){}if(D&&D.geo){const d=D;$('att').textContent='載入圖資中…';await loadTex(d);if(d===D)build(false)}};
 $('rs').onchange=e=>e.target.value&&openRide(e.target.value,1);
-(async()=>{try{const L=await(await fetch('rides/index.json')).json(),q=new URLSearchParams(location.search).get('ride');
+(async()=>{try{const L=(await(await fetch('rides/index.json')).json()).sort((a,b)=>(b.date||'').localeCompare(a.date||'')),q=new URLSearchParams(location.search).get('ride');
  L.forEach(r=>{const o=document.createElement('option');o.value=r.file;o.textContent=r.name;$('rs').appendChild(o)});
  const m=L.find(r=>r.file===q||r.name===q)||L[0];if(m&&!loadSeq)openRide(m.file,0)}catch(e){console.error('rides/index.json 載入失敗',e)}})();
 </script></body></html>
