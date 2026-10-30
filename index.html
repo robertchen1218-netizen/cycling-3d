@@ -9,7 +9,7 @@
 html,body{height:100%;margin:0}
 body{background:radial-gradient(ellipse at 50% 40%,var(--b1),var(--b2));color:var(--tx);font:14px/1.5 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
 #app{position:relative;height:100%}
-#c{position:absolute;inset:0;width:100%;height:100%;display:block}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .p{position:absolute;background:var(--pn);border:1px solid var(--ln);border-radius:8px;padding:10px 12px;backdrop-filter:blur(8px)}
 #top{left:10px;top:10px;width:212px}#info{right:10px;top:10px;width:178px}
 #bar{left:10px;right:10px;bottom:10px}#cr{display:flex;gap:10px;align-items:center}#chs{display:flex;gap:10px;margin-top:8px}#chs canvas{flex:1;min-width:0;height:96px;touch-action:none;cursor:pointer}
@@ -27,10 +27,12 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0 0 8px}dt{co
 .hd{display:flex;align-items:center;justify-content:space-between;gap:8px}.hd h1{margin:0 0 8px}#mn{display:none;flex:none;padding:2px 10px}
 #ct{flex:none}#ct[aria-pressed="true"]{background:var(--ac);color:var(--on);border-color:var(--ac)}.hide{display:none!important}
 @media(max-width:600px){
-#top{right:10px;width:auto;padding:6px 10px}.hd h1{margin:0;font-size:14px}#mn{display:block}#top:not(.cl) .hd h1{margin-bottom:8px}#top.cl #tc{display:none}
+#top{right:10px;width:auto;padding:6px 10px;max-height:calc(100% - var(--bh,60px) - 40px);overflow-y:auto;box-sizing:border-box}.hd h1{margin:0;font-size:14px}#mn{display:block}#top:not(.cl) .hd h1{margin-bottom:8px}#top.cl #tc{display:none}
 #info{top:auto;bottom:calc(var(--bh,60px) + 22px);left:10px;right:10px;width:auto;padding:6px 10px;font-size:12px}
 #info dl{display:flex;flex-wrap:wrap;gap:0 6px;margin:0 0 4px}#info dd{margin:0 8px 0 0;text-align:left}#lb{display:none}#sum{margin-bottom:4px}#st{display:flex;flex-wrap:wrap;gap:0 6px;margin:0 0 4px;padding-bottom:4px}#st span:nth-child(even){margin-right:8px;text-align:left}
-#cr{flex-wrap:wrap}#chs{flex-direction:column;margin-top:6px}#chs canvas{height:56px}}
+#cr{flex-wrap:wrap;gap:6px 8px}#tl{flex-basis:100%;order:-1;margin:0}#cr>label{margin-right:auto}#chs{flex-direction:column;margin-top:6px}#chs canvas{flex:none;height:56px}}
+button,select,label,input{touch-action:manipulation}
+@media(pointer:coarse){button,.btn,select{min-height:38px}#play{width:46px}input[type=range]{height:28px}#tl::-webkit-slider-thumb{width:24px;height:24px}#tl::-moz-range-thumb{width:24px;height:24px}}
 </style></head><body>
 <div id="app"><canvas id="c" role="img" aria-label="3D 地形與路線，可拖曳旋轉、滾輪或雙指縮放"></canvas>
 <div class="p" id="top"><div class="hd"><h1>GPX 真實地形坡度</h1><button id="mn" aria-label="選單" aria-controls="tc" aria-expanded="true">☰</button></div><div id="tc">
@@ -308,6 +310,7 @@ function loop(n){requestAnimationFrame(loop);const dt=Math.min(.1,(n-pt)/1000);p
 rs();$('sum').textContent='請上傳 GPX 檔，或按「範例路線」';requestAnimationFrame(loop);
 if(matchMedia('(max-width:600px)').matches){$('top').classList.add('cl');syncMn();$('chs').classList.add('hide');$('ct').setAttribute('aria-pressed','false')}
 function syncMn(){$('mn').setAttribute('aria-expanded',String(!$('top').classList.contains('cl')))}
+$('c').addEventListener('pointerdown',()=>{if(matchMedia('(max-width:600px)').matches&&!$('top').classList.contains('cl')){$('top').classList.add('cl');syncMn()}});
 $('mn').onclick=()=>{$('top').classList.toggle('cl');syncMn()};
 $('ct').onclick=()=>{const h=$('chs').classList.toggle('hide');$('ct').setAttribute('aria-pressed',String(!h))};
 new ResizeObserver(()=>document.documentElement.style.setProperty('--bh',$('bar').offsetHeight+'px')).observe($('bar'));
