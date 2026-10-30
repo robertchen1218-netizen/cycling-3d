@@ -64,6 +64,9 @@ let D=null,mode='disc',grp,mk,rg,BC=[],P=[],cur=0,play=false,lastI=-1,ex=1,speed
 const cv=document.createElement('canvas');cv.width=4;cv.height=64;const cx2=cv.getContext('2d',{willReadFrequently:true});
 ['#8a6a4b','#b08d62','#6e5238','#c4a077','#7d5e42','#a58259','#5f4630','#b89468'].forEach((h,i)=>{cx2.fillStyle=h;cx2.fillRect(0,i*8,4,8)});
 const tex=new THREE.CanvasTexture(cv);
+const KEEP=new Set([tex]);// 共用資源：重建場景時不 dispose
+function disposeGroup(g){const seen=new Set();g.traverse(o=>{if(o.geometry&&!o.isSprite&&!KEEP.has(o.geometry))o.geometry.dispose();// Sprite 的 geometry 是 three.js 內部共用的
+ (o.material?[].concat(o.material):[]).forEach(m=>{if(seen.has(m)||KEEP.has(m))return;seen.add(m);if(m.map&&!KEEP.has(m.map)&&!(D&&m.map===D.tx))m.map.dispose();m.dispose()})})}
 function rs(){req();const a=$('app');rd.setSize(a.clientWidth,a.clientHeight,false);cam.aspect=a.clientWidth/a.clientHeight;cam.updateProjectionMatrix()}
 new ResizeObserver(rs).observe($('app'));
 function parse(t){const x=new DOMParser().parseFromString(t,'text/xml');let o=[...x.getElementsByTagNameNS('*','trkpt')];if(!o.length)o=[...x.getElementsByTagNameNS('*','rtept')];
@@ -156,7 +159,7 @@ async function hrConnect(){if(!navigator.bluetooth){$('sum').textContent='這個
   await ch.startNotifications();ch.addEventListener('characteristicvaluechanged',e=>{const v=e.target.value;HRX=(v.getUint8(0)&1)?v.getUint16(1,true):v.getUint8(1)});$('sum').textContent='心率帶已連接：'+(dev.name||'')}
  catch(e){$('sum').textContent='心率帶連線失敗：'+(e&&e.message||e)}}
 function build(reset){
- if(grp){sc.remove(grp);grp.traverse(o=>o.geometry&&o.geometry.dispose())}
+ if(grp){sc.remove(grp);disposeGroup(grp)}
  grp=new THREE.Group();sc.add(grp);
  const ev=Math.min(.2*R/D.rel,30*D.u)*ex,Rd=.75*R,dome=mode==='dome';
  const pl=(x,z,h)=>{const w=h*ev;if(!dome)return new V3(x,w,z);const r=Math.hypot(x,z),f=r/R*Math.PI/2,th=Math.atan2(z,x),q=Rd+w;return new V3(q*Math.sin(f)*Math.cos(th),q*Math.cos(f),q*Math.sin(f)*Math.sin(th))};
@@ -260,7 +263,9 @@ const file=f=>{if(!f)return;const id=++loadSeq;clearRide();f.text().then(t=>load
 $('f').onchange=e=>file(e.target.files[0]);$('demo').onclick=()=>{clearRide();load(demo())};
 addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();file(e.dataTransfer.files[0])});
 $('f').previousElementSibling&&0;document.querySelector('label[for=f]').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('f').click()}};
-$('ex').oninput=e=>{ex=+e.target.value;D&&build(false)};
+// 高度誇張：拖動時 debounce（停 120ms 才重建），放開時立即重建一次
+let exT=0;$('ex').oninput=e=>{ex=+e.target.value;if(!D)return;clearTimeout(exT);exT=setTimeout(()=>D&&build(false),120)};
+$('ex').onchange=e=>{clearTimeout(exT);ex=+e.target.value;D&&build(false)};
 $('play').onclick=()=>{if(!D)return;if(cur>=D.T[D.N-1]-.01)cur=0;play=!play;$('play').textContent=play?'❚❚':'▶'};
 $('tl').oninput=e=>{if(D){cur=e.target.value/1000*D.T[D.N-1];upd()}};
 let pt=performance.now();
