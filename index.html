@@ -99,10 +99,13 @@ function prep(raw){
   H.push(sh/sw+.02*rel+Math.min(1,dm/2)*.05*rel*(Math.sin(x*1.7+1.3)*Math.cos(z*1.3)+.5*Math.sin(x*3.1-z*2.3)))}}
  return{N,X,Z,E:Es,S,T,G,V,L,up,hasT,u,emin,rel,H,maxG:Math.max(...G),RH:Es.map(e=>e-emin+.05*rel),clat:a[0].lat-cz/ky,clon:a[0].lon+cx/kx,kx,ky}}
 function bone(m,a,b,r,z){const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1e-4;m.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,z);m.scale.set(r,l,r);m.quaternion.setFromAxisAngle(ZA,Math.atan2(dy,dx)-Math.PI/2)}
+// 車架、骨架都用同一個單位圓柱（bone() 用 scale 拉伸），輪子／輻條／踏板也共用，不必每次重建都配置新 geometry
+const BG={cyl:new THREE.CylinderGeometry(1,1,1,6),tire:new THREE.TorusGeometry(.3,.014,8,36),rim:new THREE.TorusGeometry(.284,.016,6,36),spoke:new THREE.CylinderGeometry(.005,.005,.56,4),pedal:new THREE.BoxGeometry(.1,.025,.06)};
+Object.values(BG).forEach(g=>KEEP.add(g));
 function bike(){const g=new THREE.Group(),mt=c=>new THREE.MeshBasicMaterial({color:c}),fm=mt(0xff6a1a),bm=mt(0x1b1b1b),rm=mt(0xc9ccd1),jm=mt(0x1f6feb),sk=mt(0xe0b48a),sw=mt(0xeeeeee),
- cyl=m=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(1,1,1,6),m);g.add(c);return c},U={w:[],th:[],sh:[],cr:[],pd:[],z:[.07,-.07]};
- [-.5,.5].forEach(x=>{const w=new THREE.Group();w.position.set(x,.31,0);w.add(new THREE.Mesh(new THREE.TorusGeometry(.3,.014,8,36),bm),new THREE.Mesh(new THREE.TorusGeometry(.284,.016,6,36),rm));
-  [0,1,2].forEach(k=>{const q=new THREE.Mesh(new THREE.CylinderGeometry(.005,.005,.56,4),rm);q.rotation.z=k*Math.PI/3;w.add(q)});g.add(w);U.w.push(w)});
+ cyl=m=>{const c=new THREE.Mesh(BG.cyl,m);g.add(c);return c},U={w:[],th:[],sh:[],cr:[],pd:[],z:[.07,-.07]};
+ [-.5,.5].forEach(x=>{const w=new THREE.Group();w.position.set(x,.31,0);w.add(new THREE.Mesh(BG.tire,bm),new THREE.Mesh(BG.rim,rm));
+  [0,1,2].forEach(k=>{const q=new THREE.Mesh(BG.spoke,rm);q.rotation.z=k*Math.PI/3;w.add(q)});g.add(w);U.w.push(w)});
  const Rh=[-.5,.31],Fh=[.5,.31],BB=[-.04,.24],S=[-.2,.69],H=[.34,.65],HB=[.4,.54];
  [[Rh,BB],[BB,S],[Rh,S],[S,H],[BB,HB],[HB,Fh],[H,HB],[S,[-.215,.74]],[H,[.37,.72]]].forEach(([a,b],i)=>bone(cyl(i>6?bm:fm),a,b,i>6?.013:.02,0));
  const sd=new THREE.Mesh(new THREE.BoxGeometry(.17,.025,.06),bm);sd.position.set(-.22,.755,0);g.add(sd);
@@ -110,7 +113,7 @@ function bike(){const g=new THREE.Group(),mt=c=>new THREE.MeshBasicMaterial({col
  const tp=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.18,5),bm);tp.rotation.x=Math.PI/2;tp.position.set(.37,.72,0);g.add(tp);
  bone(cyl(jm),[-.17,.84],[.2,.98],.065,0);const hm=new THREE.Mesh(new THREE.SphereGeometry(.065,10,8),sk);hm.position.set(.3,1.05,0);g.add(hm);
  [-.1,.1].forEach(z=>bone(cyl(jm),[.2,.98],[.46,.71],.028,z));
- [0,1].forEach(()=>{U.th.push(cyl(bm));U.sh.push(cyl(sw));U.cr.push(cyl(bm));const p=new THREE.Mesh(new THREE.BoxGeometry(.1,.025,.06),bm);g.add(p);U.pd.push(p)});
+ [0,1].forEach(()=>{U.th.push(cyl(bm));U.sh.push(cyl(sw));U.cr.push(cyl(bm));const p=new THREE.Mesh(BG.pedal,bm);g.add(p);U.pd.push(p)});
  g.scale.setScalar(1.2);const o=new THREE.Group();o.add(g);o.userData=U;return o}
 function animBike(o,sp){const U=o.userData,a=-sp/.36,hip=[-.17,.84];U.w.forEach(w=>w.rotation.z=a);
  [0,1].forEach(k=>{const ph=a/2.8+k*Math.PI,pd=[-.04+.09*Math.cos(ph),.24+.09*Math.sin(ph)],dx=pd[0]-hip[0],dy=pd[1]-hip[1],d=Math.min(Math.hypot(dx,dy),.7),
