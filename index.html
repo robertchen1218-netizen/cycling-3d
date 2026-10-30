@@ -213,7 +213,8 @@ function upd(){const T=D.T;let lo=0,hi=D.N-1;while(hi-lo>1){const m=(lo+hi)>>1;T
  $('g').textContent=l(D.G).toFixed(1)+' %';$('v').textContent=D.hasT?l(D.V).toFixed(1)+' km/h':'無時間資料';$('tl').value=cur/T[D.N-1]*1000;curS=l(D.S);chart(0);chart(1)}
 // 真實地形：AWS Terrarium 高程圖磚 + Esri 衛星影像（可改成內政部 NLSC：https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}）
 const DEMU=(z,x,y)=>'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/'+z+'/'+x+'/'+y+'.png';
-const loadImg=u=>new Promise((ok,no)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>ok(i);i.onerror=no;i.src=u});
+const loadImg=u=>new Promise((ok,no)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>ok(i);i.onerror=()=>no(new Error('圖磚載入失敗 '+u));i.src=u});
+const loadImgRetry=async(u,n=3)=>{for(let t=0;;t++){try{return await loadImg(u)}catch(e){if(t>=n-1)throw e;await new Promise(r=>setTimeout(r,300*(t+1)))}}};
 const wpx=(la,lo,z)=>{const n=256*2**z,s=Math.sin(la*Math.PI/180);return[(lo+180)/360*n,(.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n]};
 const SRC={nlsc:{n:'內政部國土測繪中心',u:(z,x,y)=>'https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/'+z+'/'+y+'/'+x,c:'影像：內政部國土測繪中心'},
  esri:{n:'Esri',u:(z,x,y)=>'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x,c:'影像：Esri World Imagery'}};
@@ -221,18 +222,18 @@ let srcKey='esri';try{srcKey=localStorage.getItem('src')||'esri'}catch(e){}if(!S
 const pool=async(items,n,fn)=>{const q=[...items];await Promise.all(Array.from({length:n},async()=>{while(q.length)await fn(q.shift())}))};
 async function loadTex(d){const{z,t0,jobs,W,Hh}=d.geo,S=SRC[srcKey],k=z<16?1:0,m=2**k,Z=z+k,ic=document.createElement('canvas');ic.width=W*m;ic.height=Hh*m;const ig=ic.getContext('2d');ig.fillStyle='#d9d4c3';ig.fillRect(0,0,ic.width,ic.height);
  const L=[];jobs.forEach(([a,b])=>{for(let i=0;i<m;i++)for(let j=0;j<m;j++)L.push([(t0[0]+a)*m+i,(t0[1]+b)*m+j,(a*m+i)*256,(b*m+j)*256])});
- const get=async(z2,x,y)=>{for(let t=0;t<3;t++){try{return await loadImg(S.u(z2,x,y))}catch(e){await new Promise(r=>setTimeout(r,300*(t+1)))}}return null};
+ const get=(z2,x,y)=>loadImgRetry(S.u(z2,x,y)).catch(()=>null);
  let ok=0;const miss=[];
  await pool(L,8,async([x,y,px,py])=>{const im=await get(Z,x,y);if(im){ig.drawImage(im,px,py);ok++}else miss.push([x,y,px,py])});
  await pool(miss,4,async([x,y,px,py])=>{const im=await get(Z-1,x>>1,y>>1);if(im){ig.drawImage(im,(x&1)*128,(y&1)*128,128,128,px,py,256,256);ok++}});
  if(d.tx)d.tx.dispose();d.tx=null;if(ok){d.tx=new THREE.CanvasTexture(ic);d.tx.anisotropy=8}
- $('att').textContent=(ok?S.c+(miss.length?'（'+miss.length+' 塊圖磚改用低解析度）':''):'「'+S.n+'」圖磚無法載入，已改用高度著色')+'；高程：AWS Terrain Tiles'}
+ if(d.seq===loadSeq)$('att').textContent=(ok?S.c+(miss.length?'（'+miss.length+' 塊圖磚改用低解析度）':''):'「'+S.n+'」圖磚無法載入，已改用高度著色')+'；高程：AWS Terrain Tiles'}
 async function real(d){
  const Rm=R/d.u,dy=Rm/d.ky,dx=Rm/d.kx;let z=14,t0,t1;
  for(;z>6;z--){const a=wpx(d.clat+dy,d.clon-dx,z),b=wpx(d.clat-dy,d.clon+dx,z);t0=[a[0]/256|0,a[1]/256|0];t1=[b[0]/256|0,b[1]/256|0];if((t1[0]-t0[0]+1)*(t1[1]-t0[1]+1)<=25)break}
  const nx=t1[0]-t0[0]+1,ny=t1[1]-t0[1]+1,W=nx*256,Hh=ny*256,ox=t0[0]*256,oy=t0[1]*256,el=new Float32Array(W*Hh),jobs=[];
  for(let a=0;a<nx;a++)for(let b=0;b<ny;b++)jobs.push([a,b]);
- const imgs=await Promise.all(jobs.map(([a,b])=>loadImg(DEMU(z,t0[0]+a,t0[1]+b)))),tc=document.createElement('canvas').getContext('2d',{willReadFrequently:true});
+ const imgs=new Array(jobs.length);await pool(jobs.map((j,n)=>[j,n]),8,async([[a,b],n])=>{imgs[n]=await loadImgRetry(DEMU(z,t0[0]+a,t0[1]+b))});const tc=document.createElement('canvas').getContext('2d',{willReadFrequently:true});
  tc.canvas.width=tc.canvas.height=256;
  jobs.forEach(([a,b],n)=>{tc.drawImage(imgs[n],0,0);const q=tc.getImageData(0,0,256,256).data;for(let p=0;p<65536;p++)el[(b*256+(p>>8))*W+a*256+(p&255)]=q[p*4]*256+q[p*4+1]+q[p*4+2]/256-32768});
  d.geo={z,t0,jobs,W,Hh};await loadTex(d);
@@ -241,16 +242,19 @@ async function real(d){
  const raw=[],uv=[];for(let i=0;i<=NR;i++)for(let j=0;j<=NS;j++){const th=2*Math.PI*j/NS,r=R*i/NR,s=smp(r*Math.cos(th),r*Math.sin(th));raw.push(Math.max(0,s[0]));uv.push(s[1],s[2])}
  const hmn=raw.reduce((a,b)=>Math.min(a,b)),hmx=raw.reduce((a,b)=>Math.max(a,b)),rel=Math.max(20,hmx-hmn);
  d.H=raw.map(h=>h-hmn);d.rel=rel;d.uv=uv;d.RH=d.X.map((x,i)=>Math.max(0,smp(x,d.Z[i])[0])-hmn+.005*rel);}
-async function load(raw){let n;try{n=prep(raw)}catch(e){$('sum').textContent=typeof e==='string'?e:'無法讀取這個 GPX 檔';return}
- $('sum').textContent='下載真實地形中…';try{await real(n);n.real=1}catch(e){n.real=0}
+let loadSeq=0;
+async function load(raw,id=++loadSeq){if(id!==loadSeq)return;let n;try{n=prep(raw)}catch(e){console.error(e);$('sum').textContent=typeof e==='string'?e:'無法讀取這個 GPX 檔';return}
+ n.seq=id;$('sum').textContent='下載真實地形中…';try{await real(n);n.real=1}catch(e){console.warn('真實地形載入失敗，改用估算地形',e);n.real=0}
+ if(id!==loadSeq)return;// 使用者已換了別條路線：丟掉這次的結果
  D=n;D.cl=climbs(D);fillCl();cur=0;play=false;$('play').textContent='▶';const end=D.T[D.N-1];
  $('sum').textContent='總距離 '+(D.L/1000).toFixed(1)+' km，爬升 '+Math.round(D.up)+' m，最大坡度 '+D.maxG.toFixed(1)+' %'+(D.real?'':'（無法下載地形圖磚，改用估算地形）');build(true);if(matchMedia('(max-width:600px)').matches)$('top').classList.add('cl')}
 function demo(){const a=[],n=500;let t=Date.now(),px=0,py=0,pe=150;
  for(let k=0;k<n;k++){const s=k/(n-1),x=16000*s+500*Math.sin(s*14),y=1500*Math.sin(s*5)+500*Math.sin(s*23),b=s<.8?1000*s/.8:1000*(1-(s-.8)/.2*.35),e=150+b+60*Math.sin(s*14);
   if(k){const ds=Math.hypot(x-px,y-py),g=(e-pe)/ds*100;t+=ds/Math.max(2,Math.min(14,8.5-.5*g))*1000}
   px=x;py=y;pe=e;a.push({lat:25.18+y/110540,lon:121.55+x/(111320*Math.cos(25.18*Math.PI/180)),ele:e,t})}return a}
-const file=f=>f&&f.text().then(t=>load(parse(t)));
-$('f').onchange=e=>file(e.target.files[0]);$('demo').onclick=()=>load(demo());
+const clearRide=()=>{$('rs').value='';history.replaceState(null,'',location.pathname)};
+const file=f=>{if(!f)return;const id=++loadSeq;clearRide();f.text().then(t=>load(parse(t),id)).catch(e=>{console.error(e);$('sum').textContent='無法讀取檔案：'+(e&&e.message||e)})};
+$('f').onchange=e=>file(e.target.files[0]);$('demo').onclick=()=>{clearRide();load(demo())};
 addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();file(e.dataTransfer.files[0])});
 $('f').previousElementSibling&&0;document.querySelector('label[for=f]').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('f').click()}};
 $('ex').oninput=e=>{ex=+e.target.value;D&&build(false)};
@@ -279,10 +283,13 @@ $('end').onclick=()=>{LV=null;CP=null;play=false;$('play').textContent='▶';doc
 $('dl').onclick=()=>{if(!LV)return;const rows=['t_s,speed_kmh,power_w,cadence_rpm,hr_bpm,distance_m,grade_pct'].concat(LV.samples.map(r=>r.map(x=>(+x).toFixed(1)).join(',')));
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='ride-'+new Date().toISOString().slice(0,10)+'.csv';a.click()};
 function fillCl(){const s=$('cl');s.length=1;s.options[0].textContent=D.cl.length?'選擇爬坡…':'（沒有明顯爬坡）';D.cl.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=(D.S[c.a]/1000).toFixed(1)+'–'+(D.S[c.b]/1000).toFixed(1)+' km｜+'+Math.round(c.g)+' m｜'+c.avg.toFixed(1)+'%';s.appendChild(o)})}
-async function openRide(f,u){try{const rr=await fetch('rides/'+encodeURIComponent(f));if(!rr.ok)throw 0;const t=await rr.text();if(u)history.replaceState(null,'','?ride='+encodeURIComponent(f));load(parse(t))}catch(e){$('sum').textContent='找不到 rides/'+f+'，請確認檔名和 index.json 寫的一模一樣'}}
-$('sr').value=srcKey;$('sr').onchange=async e=>{srcKey=e.target.value;try{localStorage.setItem('src',srcKey)}catch(x){}if(D&&D.geo){$('att').textContent='載入圖資中…';await loadTex(D);build(false)}};
+async function openRide(f,u){const id=++loadSeq;$('rs').value=f;if(u)history.replaceState(null,'','?ride='+encodeURIComponent(f));$('sum').textContent='載入 '+f+'…';let t;
+ try{const rr=await fetch('rides/'+encodeURIComponent(f));if(!rr.ok)throw new Error('HTTP '+rr.status);t=await rr.text()}
+ catch(e){console.error(e);if(id===loadSeq)$('sum').textContent='找不到 rides/'+f+'（'+(e&&e.message||e)+'），請確認檔名和 index.json 寫的一模一樣';return}
+ if(id===loadSeq)load(parse(t),id)}
+$('sr').value=srcKey;$('sr').onchange=async e=>{srcKey=e.target.value;try{localStorage.setItem('src',srcKey)}catch(x){}if(D&&D.geo){const d=D;$('att').textContent='載入圖資中…';await loadTex(d);if(d===D)build(false)}};
 $('rs').onchange=e=>e.target.value&&openRide(e.target.value,1);
 (async()=>{try{const L=await(await fetch('rides/index.json')).json(),q=new URLSearchParams(location.search).get('ride');
  L.forEach(r=>{const o=document.createElement('option');o.value=r.file;o.textContent=r.name;$('rs').appendChild(o)});
- const m=L.find(r=>r.file===q||r.name===q)||L[0];if(m){$('rs').value=m.file;openRide(m.file,0)}}catch(e){}})();
+ const m=L.find(r=>r.file===q||r.name===q)||L[0];if(m&&!loadSeq)openRide(m.file,0)}catch(e){console.error('rides/index.json 載入失敗',e)}})();
 </script></body></html>
