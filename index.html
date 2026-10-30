@@ -61,7 +61,7 @@ let rd;try{rd=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,alpha:true})
 // 2D canvas 當 WebGL 貼圖時用 willReadFrequently（CPU canvas），避免 Chrome 每次上傳都從 GPU 讀回（GPU stall due to ReadPixels）。
 // 軟體 WebGL（無 GPU 的 VM／遠端桌面）每畫一幀都要把畫面讀回給合成器，所以降到 1x 解析度減少讀回量。
 {const gl=rd.getContext(),di=gl.getExtension('WEBGL_debug_renderer_info'),gr=di?gl.getParameter(di.UNMASKED_RENDERER_WEBGL):'';if(/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gr))rd.setPixelRatio(1)}
-const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(42,1,.1,300),ct=new THREE.OrbitControls(cam,rd.domElement);ct.enableDamping=true;ct.addEventListener('change',req);
+const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(42,1,.1,300),ct=new THREE.OrbitControls(cam,rd.domElement);ct.enableDamping=true;// 不監聽 'change'：loop() 每幀 ct.update()，鏡頭真的有移動才重畫
 sc.add(new THREE.HemisphereLight(0xffffff,0x40505a,.95));const dl=new THREE.DirectionalLight(0xffffff,.85);dl.position.set(8,14,6);sc.add(dl);
 let D=null,mode='disc',grp,mk,rg,BC=[],P=[],cur=0,play=false,lastI=-1,ex=1,speed=600;
 const cv=document.createElement('canvas');cv.width=4;cv.height=64;const cx2=cv.getContext('2d',{willReadFrequently:true});
@@ -303,13 +303,17 @@ $('play').onclick=()=>{if(!D)return;if(cur>=D.T[D.N-1]-.01)cur=0;play=!play;setP
 $('tl').oninput=e=>{if(D){cur=e.target.value/1000*D.T[D.N-1];upd()}};
 let pt=performance.now();
 // 只在有變化時才更新／渲染：播放、即時騎乘、操作視角或 UI 後的 30 幀（讓阻尼、車身轉向、跟隨鏡頭收斂）
-const tv=new V3();
+const tv=new V3(),lc={p:new V3(),q:new THREE.Quaternion()};
 function loop(n){requestAnimationFrame(loop);const dt=Math.min(.1,(n-pt)/1000);pt=n;
  const act=!!D&&(play||!!LV),go=act||need>0;
  if(D&&go){if(LV)liveStep(dt);else if(play){cur+=dt*speed;if(cur>=D.T[D.N-1]){cur=D.T[D.N-1];play=false;setPB()}}upd();if(LV)liveHud();
   if($('fol').checked){tv.copy(mk.position).sub(ct.target).multiplyScalar(.08);ct.target.add(tv);cam.position.add(tv)}
   if($('vw').value==='chase'){tv.copy(mk.position).addScaledVector(HD,-3.4).addScaledVector(UPV,1.6);cam.position.lerp(tv,.12);tv.copy(mk.position).addScaledVector(HD,2).addScaledVector(UPV,.4);ct.target.lerp(tv,.2)}}
- const moved=ct.update();if(go||moved)rd.render(sc,cam);if(need>0)need--}
+ // OrbitControls r128 的阻尼是「每幀」乘 0.95，低幀率（軟體 GL）時要拖很久才停；改成依實際經過時間換算，任何幀率都約 2 秒內停下
+ ct.dampingFactor=1-Math.pow(.95,Math.max(1,dt*60));
+ // 鏡頭移動小於 1e-4（遠小於 1 像素）時不重畫，讓阻尼尾巴不必一直渲染
+ let moved=ct.update();if(moved){moved=cam.position.distanceToSquared(lc.p)>1e-8||cam.quaternion.angleTo(lc.q)>1e-5}
+ if(go||moved){rd.render(sc,cam);lc.p.copy(cam.position);lc.q.copy(cam.quaternion)}if(need>0)need--}
 ['input','change','pointerdown','keydown'].forEach(t=>addEventListener(t,req,true));addEventListener('wheel',req,{capture:true,passive:true});
 rs();$('sum').textContent='請上傳 GPX 檔，或按「範例路線」';requestAnimationFrame(loop);
 if(matchMedia('(max-width:600px)').matches){$('top').classList.add('cl');syncMn();$('chs').classList.add('hide');$('ct').setAttribute('aria-pressed','false')}
